@@ -1,0 +1,117 @@
+{
+  "name": "Drift Yard original procedural asset pack",
+  "version": "0.11",
+  "sources": [
+    "../engine.js",
+    "../assets.js",
+    "../catalog.js",
+    "../props.js"
+  ],
+  "vehicles": [
+    "Origin R-86 coupe",
+    "Nova Dart GT hatchback",
+    "Heritage Brick 80 retro sedan",
+    "Axis Vector S sedan",
+    "Sol Mirage R roadster",
+    "Iron Hammer V8 muscle car",
+    "Axis Nomad RS wagon",
+    "Iron Ranger X pickup",
+    "Vela Vortex GT supercar",
+    "Veloce Apex X open-wheel racer"
+  ],
+  "locations": [
+    "Industrial yard",
+    "Cargo harbour",
+    "Airfield",
+    "Canyon plateau",
+    "Garage showroom",
+    "Green highway road race",
+    "Speed oval road race",
+    "Coastal road race",
+    "City boulevard circuit",
+    "Mountain pass road race",
+    "Village road race",
+    "Narrow village lanes race",
+    "Narrow forest ridge race"
+  ],
+  "customization": [
+    "12 preset and custom colours",
+    "6 rim designs/finishes",
+    "3 spoilers",
+    "3 liveries",
+    "3 paint finishes",
+    "3 body kits/aero setups",
+    "3 exhaust configurations",
+    "3 glass shades",
+    "3 headlamp colours",
+    "3 caliper colours",
+    "3 livery colours",
+    "Editable 3D license plates",
+    "Visible lowered suspension"
+  ],
+  "effects": [
+    "Rotating wheels",
+    "Dynamic tyre trails",
+    "Smoke particles"
+  ],
+  "external_assets": false,
+  "hoods": "Matched bonnet surfaces; APEX shows front wheels, suspension and nose aero, excluding the cockpit halo",
+  "vehicle_details": [
+    "Contoured shells and wheel arches",
+    "Panel seams, mirrors, wipers and door handles",
+    "Model-specific lamp clusters and grilles",
+    "48-segment rounded tyres and tread",
+    "Split spokes, fasteners, brake discs and fixed calipers",
+    "Paint, glass, rubber and metal surface shading"
+  ],
+  "geometry_fixes": [
+    "Smoothed surface normals",
+    "Flush bonnet seams and decals",
+    "Circular headlamp lenses",
+    "Tyre clearance at every suspension level",
+    "Open roadster cockpit and pickup bed",
+    "Sealed roof and supported roof rails",
+    "Soft layered contact shadow",
+    "Conforming rounded door seams",
+    "Parked windscreen wipers",
+    "Hollow exhaust tips with diffuser clearance",
+    "Sculpted APEX body, cockpit, nose and wings",
+    "Steering-linked APEX wishbones with fitted chassis and wheel-carrier pickups"
+  ],
+  "audio_enabled": false,
+  "racing": [
+    "Shared road/collision geometry",
+    "Wide guardrails",
+    "Ordered movement-based checkpoints",
+    "Single lap or point-to-point finish",
+    "Race time, contact count and local best times"
+  ],
+  "movable_props": [
+    "Cones",
+    "Wooden crates",
+    "Rolling barrels",
+    "Bins",
+    "Benches",
+    "Falling lamps",
+    "Baggage carts",
+    "Warehouse shelving",
+    "Parking and information signs"
+  ],
+  "prop_physics": [
+    "Independent mass and impulses",
+    "Car and oriented prop contacts",
+    "Pair collisions",
+    "Fixed obstacle contacts",
+    "Gravity and floor bounce",
+    "Yaw torque and tipping",
+    "Barrel rolling and friction",
+    "Sleeping and restart reset"
+  ],
+  "arena_layouts": [
+    "Authored rest clusters with benches, bins and lamps",
+    "Container-side cargo loading groups",
+    "Airport baggage and service groups",
+    "Mountain stops and road repairs",
+    "Linked walking paths, parking bays and service lanes"
+  ]
+}

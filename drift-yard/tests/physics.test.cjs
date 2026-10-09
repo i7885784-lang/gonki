@@ -1,0 +1,13 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const P=require('../dist/physics.js');
+const advance=(s,input,seconds)=>{for(let i=0;i<Math.round(seconds*120);i++)P.step(s,input,1/120);return s};
+test('idle car remains still',()=>{const s=P.create(),x=s.x,z=s.z;advance(s,{},10);assert.equal(s.speed,0);assert.equal(s.x,x);assert.equal(s.z,z)});
+test('throttle accelerates and straight driving does not earn drift',()=>{const s=P.create();s.x=-35;s.z=-45;advance(s,{gas:true},2);assert.ok(s.speed>18);assert.equal(s.drifting,false);assert.ok(s.x>-35)});
+test('brake stops forward motion and permits reverse',()=>{const s=P.create();s.x=-35;s.z=-45;advance(s,{gas:true},1);const fast=s.speed;advance(s,{brake:true},.3);assert.ok(s.speed<fast);advance(s,{brake:true},2);assert.ok(s.vx<0);assert.equal(s.drifting,false)});
+test('right steering follows screen-right in rear chase camera',()=>{const s=P.create();s.x=-25;s.z=-45;advance(s,{gas:true},1);const yaw=s.yaw;advance(s,{gas:true,right:true},.5);assert.ok(s.yaw<yaw);assert.ok(s.vz>0)});
+test('handbrake turn produces controllable drift',()=>{const s=P.create();s.x=-25;s.z=-45;advance(s,{gas:true},1.2);let driftFrames=0;for(let i=0;i<140;i++){P.step(s,{gas:true,right:true,handbrake:i<35},1/120);driftFrames+=s.drifting}assert.ok(driftFrames>60);assert.ok(Number.isFinite(s.speed));assert.ok(s.speed>5)});
+test('obstacle collision pushes the car out and slows it',()=>{const s=P.create();s.x=-10;s.z=0;s.vx=20;s.vz=0;s.yaw=Math.PI/2;let hit=false;for(let i=0;i<40;i++){P.step(s,{},1/120);hit ||=s.collision}assert.ok(hit);assert.ok(s.x<=-8.8);assert.ok(s.speed<20)});
+test('arena boundaries contain the car',()=>{const s=P.create();s.x=57.9;s.z=-45;s.vx=30;s.yaw=Math.PI/2;P.step(s,{gas:true},1/30);assert.ok(s.collision);assert.ok(s.x<=58);assert.ok(s.vx<0)});
+test('large frame delays cannot cause uncontrolled physics jumps',()=>{const s=P.create();s.z=-45;s.vx=30;const x=s.x;P.step(s,{gas:true},10);assert.ok(Math.abs(s.x-x)<2);assert.ok(Number.isFinite(s.speed))});
+test('long mixed-input simulation stays finite and inside arena',()=>{let seed=79;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296};const s=P.create();for(let i=0;i<36000;i++){P.step(s,{gas:rand()>.1,brake:rand()>.97,left:Math.sin(i/220)>.4,right:Math.sin(i/220)<-.4,handbrake:i%400<25},1/120);assert.ok(Number.isFinite(s.x+s.z+s.speed+s.yaw));assert.ok(Math.abs(s.x)<=58.001&&Math.abs(s.z)<=58.001)} });
