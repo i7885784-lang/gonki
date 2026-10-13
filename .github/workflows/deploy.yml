@@ -1,0 +1,64 @@
+name: Проверка и публикация
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: rally-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npx playwright install --with-deps chromium
+      - name: Два браузера и настоящий WebSocket-сервер
+        run: node scripts/ci-server.mjs
+        env:
+          CHROMIUM_PATH: playwright
+      - name: Проверка пакета Worker
+        run: npx wrangler deploy --dry-run
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-screenshots
+          path: work/screenshots
+  deploy:
+    needs: check
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Проверить подключение аккаунта
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo 'Добавьте CLOUDFLARE_API_TOKEN и CLOUDFLARE_ACCOUNT_ID в секреты репозитория. Публикация ещё не выполнена.'
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run deploy
+      - name: Проверить публичную комнату двумя клиентами
+        run: |
+          export TEST_ORIGIN="$(cat work/deploy-url.txt)"
+          npm run test:integration
+          echo "### Адрес игры" >> "$GITHUB_STEP_SUMMARY"
+          cat work/deploy-url.txt >> "$GITHUB_STEP_SUMMARY"
