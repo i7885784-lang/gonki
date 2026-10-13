@@ -93,6 +93,18 @@ export default {
         !(await env.JOIN_LIMIT.limit({ key: ip + ":ws" })).success
       )
         return err("Слишком много подключений", 429);
+      if (req.method === "POST") {
+        const payload = await body(req);
+        const headers = new Headers(req.headers);
+        headers.delete("content-length");
+        return env.ROOMS.get(env.ROOMS.idFromName(code)).fetch(
+          new Request("https://room/" + match[2], {
+            method: "POST",
+            headers,
+            body: JSON.stringify(payload),
+          }),
+        );
+      }
       return env.ROOMS.get(env.ROOMS.idFromName(code)).fetch(
         new Request("https://room/" + match[2], req),
       );

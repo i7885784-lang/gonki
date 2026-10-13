@@ -96,9 +96,11 @@ try {
       "ОГРАНИЧЕНИЕ: UDP запрещён политикой управляемого Chromium; проверены SDP и сообщение об отсутствии TURN, передача аудио не подтверждена.",
     );
   } else {
-    for (const page of [a, b])
-      await page.waitForFunction(
-        async () => {
+    for (const page of [a, b]) {
+      let received = false;
+      const deadline = Date.now() + 20000;
+      while (Date.now() < deadline) {
+        received = await page.evaluate(async () => {
           const pc = window.__peers.at(-1);
           if (pc?.connectionState !== "connected") return false;
           const stats = await pc.getStats();
@@ -108,10 +110,16 @@ try {
               s.kind === "audio" &&
               s.bytesReceived > 0,
           );
-        },
-        {},
-        { timeout: 20000 },
+        });
+        if (received) break;
+        await page.waitForTimeout(100);
+      }
+      assert.equal(
+        received,
+        true,
+        `Нет входящего RTP: ${await page.textContent("#voice-status")}`,
       );
+    }
     console.log(
       "Голос: подтверждён двусторонний RTP синтетических микрофонов в локальном браузере.",
     );
@@ -203,6 +211,8 @@ try {
     await a.textContent("#overlay-title"),
     await a.textContent("#speed"),
     await b.textContent("#nav-speed"),
+    await a.textContent("#voice-status"),
+    await b.textContent("#voice-status"),
   );
   await a.screenshot({ path: "work/screenshots/failure.png" });
   throw e;
