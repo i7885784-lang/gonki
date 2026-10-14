@@ -6,3 +6,4 @@ dist/
 work/
 test-results/
 playwright-report/
+build-server/

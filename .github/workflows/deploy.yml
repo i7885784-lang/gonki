@@ -26,6 +26,12 @@ jobs:
         run: node scripts/ci-server.mjs
         env:
           CHROMIUM_PATH: playwright
+      - name: Проверка HTTP и WebSocket на Node.js
+        run: npm run test:server
+      - name: Render — два браузера и Node.js-сервер
+        run: node scripts/ci-server.mjs --node
+        env:
+          CHROMIUM_PATH: playwright
       - name: Проверка пакета Worker
         run: npx wrangler deploy --dry-run
       - uses: actions/upload-artifact@v4
@@ -35,7 +41,7 @@ jobs:
           path: work/screenshots
   deploy:
     needs: check
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.DEPLOY_CLOUDFLARE == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: production
