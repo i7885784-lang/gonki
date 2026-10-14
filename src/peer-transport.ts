@@ -89,9 +89,18 @@ export class PeerTransport {
   private entry?: Entry;
   private ended = false;
   private reconnectTimer?: ReturnType<typeof setTimeout>;
+  private releaseLease?: () => void;
   constructor(private report: (text: string) => void) {}
   private async register(id?: string): Promise<Peer> {
-    const peer = id ? new Peer(id, options) : new Peer(options);
+    let brokerToken: string | undefined;
+    if (id) {
+      brokerToken =
+        sessionStorage.getItem("rally-broker:" + id) ?? crypto.randomUUID();
+      sessionStorage.setItem("rally-broker:" + id, brokerToken);
+    }
+    const peer = id
+      ? new Peer(id, { ...options, token: brokerToken })
+      : new Peer(options);
     this.peer = peer;
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -131,6 +140,23 @@ export class PeerTransport {
     });
     return peer;
   }
+  private async lease(code: string) {
+    if (!navigator.locks) return;
+    await new Promise<void>((resolve, reject) => {
+      void navigator.locks
+        .request("rally-organizer:" + code, { ifAvailable: true }, (lock) => {
+          if (!lock) {
+            reject(Error("Комната уже открыта в другой вкладке."));
+            return;
+          }
+          resolve();
+          return new Promise<void>((release) => {
+            this.releaseLease = release;
+          });
+        })
+        .catch(reject);
+    });
+  }
   async enter(role?: string, code?: string, token?: string): Promise<Entry> {
     this.ended = false;
     if (role) {
@@ -139,6 +165,7 @@ export class PeerTransport {
         crypto.getRandomValues(new Uint8Array(8)),
         (byte) => alphabet[byte % 32],
       ).join("");
+      await this.lease(code);
       const peer = await this.register(prefix + code);
       this.host = new BrowserHost(code);
       peer.on("connection", (connection) => this.accept(connection));
@@ -158,6 +185,7 @@ export class PeerTransport {
       throw Error("Код должен содержать 8 латинских букв или цифр");
     // A reload in the organizer's original tab restores its room and resume token.
     if (token && sessionStorage.getItem("rally-host:" + code)) {
+      await this.lease(code);
       let peer: Peer | undefined;
       for (let attempt = 0; attempt < 6; attempt++) {
         try {
@@ -376,6 +404,7 @@ export class PeerTransport {
   }
   stop() {
     this.ended = true;
+    this.releaseLease?.();
     clearTimeout(this.reconnectTimer);
     this.host?.stop();
     setTimeout(() => {
