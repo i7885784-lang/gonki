@@ -248,17 +248,22 @@ try {
     "PASS: два независимых браузера, приглашение, реальные физика и карта, SDP и управление микрофоном, команды, восстановление вкладки, отказ микрофона не мешает готовности; без критических ошибок.",
   );
 } catch (e) {
-  console.log(
-    "UI failure state",
-    await a.textContent("#phase-label"),
-    await a.textContent("#overlay-title"),
-    await a.textContent("#speed"),
-    await b.textContent("#nav-speed"),
-    await a.textContent("#voice-status"),
-    await b.textContent("#voice-status"),
-    await a.evaluate(() => window.__mediaFailure ?? null),
-    await b.evaluate(() => window.__mediaFailure ?? null),
-  );
+  console.log("Original failure", e);
+  for (const page of [a, b]) {
+    console.log(
+      "UI failure state",
+      await page
+        .evaluate(() => ({
+          homeError: document.querySelector("#home-error")?.textContent,
+          phase: document.querySelector("#phase-label")?.textContent,
+          overlay: document.querySelector("#overlay-title")?.textContent,
+          role: document.querySelector("#my-role")?.textContent,
+          voice: document.querySelector("#voice-status")?.textContent,
+          mediaFailure: window.__mediaFailure ?? null,
+        }))
+        .catch(() => "page unavailable"),
+    );
+  }
   await a.screenshot({ path: "work/screenshots/failure.png" });
   throw e;
 } finally {
