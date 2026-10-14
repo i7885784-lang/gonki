@@ -317,10 +317,13 @@ export class PeerTransport {
     });
     this.remote = connection;
     return new Promise<Entry>((resolve, reject) => {
+      let settled = false;
       const fail = (message: string) => {
+        if (settled) return;
+        settled = true;
         cleanup();
-        connection.close();
         reject(Error(message));
+        connection.close();
       };
       const timer = setTimeout(() => fail(timeoutMessage), 20000);
       const peerError = (error: { type: string }) => {
@@ -338,6 +341,7 @@ export class PeerTransport {
         if (packet.error || !packet.entry)
           return fail(packet.error || "Не удалось войти в комнату");
         cleanup();
+        settled = true;
         this.entry = packet.entry;
         resolve(packet.entry);
       };
@@ -348,7 +352,7 @@ export class PeerTransport {
       connection.on("data", joined);
       connection.once("error", () => fail(timeoutMessage));
       connection.once("close", () => {
-        if (!this.entry) fail("Соединение с организатором закрыто");
+        if (!settled) fail("Соединение с организатором закрыто");
       });
     });
   }
