@@ -91,6 +91,7 @@ const snapshot = (s, owner = d) => {
     q: { x: 0, y: Math.sin(p.yaw / 2), z: 0, w: Math.cos(p.yaw / 2) },
     speed: 35,
   });
+  return seq;
 };
 snapshot(3, n);
 await delay(80);
@@ -132,11 +133,16 @@ assert.equal(d.state.phase, "paused");
 n.send({ type: "resume" });
 await until(() => d.state.phase === "racing");
 // Реальные WebSocket-снимки проходят тот же валидатор. Это проверка протокола, не физический проезд.
-for (let s = 0; s < LENGTH; s += 5) {
-  snapshot(s);
+for (let s = 0; s < LENGTH && n.state.phase !== "finished"; s += 5) {
+  const sent = snapshot(s);
+  // Не накапливаем неподтверждённые координаты при задержке runner/сети.
+  // Прогресс тестового водителя продвигается только после реального получения штурманом.
+  await until(() =>
+    n.messages.some((m) => m.type === "snapshot" && m.snapshot.seq === sent),
+  );
   await delay(70);
 }
-snapshot(LENGTH - 10);
+if (n.state.phase !== "finished") snapshot(LENGTH - 10);
 await until(() => n.state.phase === "finished");
 assert.equal(d.state.checkpoint, checkpoints.length);
 assert.equal(d.state.result, n.state.result);
