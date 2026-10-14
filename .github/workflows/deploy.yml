@@ -12,7 +12,7 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,34 +21,49 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+  browsers:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [worker, node, peer]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
       - run: npx playwright install --with-deps chromium
-      - name: Два браузера и настоящий WebSocket-сервер
-        run: node scripts/ci-server.mjs
-        env:
-          CHROMIUM_PATH: playwright
-      - name: Проверка HTTP и WebSocket на Node.js
+      - name: Node — HTTP и WebSocket
+        if: matrix.backend == 'node'
         run: npm run test:server
-      - name: Render — два браузера и Node.js-сервер
-        run: node scripts/ci-server.mjs --node
-        env:
-          CHROMIUM_PATH: playwright
-      - name: GitHub Pages — WebRTC, голос и полный маршрут
-        run: npm run test:peer -- --public-broker
+      - name: Два браузера, голос и полный заезд
+        run: |
+          case "${{ matrix.backend }}" in
+            worker) node scripts/ci-server.mjs ;;
+            node) node scripts/ci-server.mjs --node ;;
+            peer) npm run test:peer -- --public-broker ;;
+          esac
         env:
           CHROMIUM_PATH: playwright
       - uses: actions/upload-pages-artifact@v3
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: matrix.backend == 'peer' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         with:
           path: dist-pages
       - name: Проверка пакета Worker
+        if: matrix.backend == 'worker'
         run: npx wrangler deploy --dry-run
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: browser-screenshots
+          name: ${{ matrix.backend }}-screenshots
           path: work/screenshots
   deploy:
-    needs: check
+    needs: [check, browsers]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.DEPLOY_CLOUDFLARE == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -78,7 +93,7 @@ jobs:
           cat work/deploy-url.txt >> "$GITHUB_STEP_SUMMARY"
 
   pages:
-    needs: check
+    needs: [check, browsers]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10

@@ -42,7 +42,7 @@ try {
   assert.match(home.headers.get("content-type"), /text\/html/);
   const html = await home.text();
   const script = html.match(/src="([^"]+\.js)"/)[1];
-  const asset = await fetch(origin + script);
+  const asset = await fetch(new URL(script, origin + "/"));
   assert.match(asset.headers.get("content-type"), /javascript/);
   assert.match(asset.headers.get("cache-control"), /immutable/);
   assert.equal((await fetch(origin + "/package.json")).status, 404);
