@@ -6,7 +6,7 @@ await fs.mkdir("work/screenshots", { recursive: true });
 const browser = await chromium.launch({
   executablePath:
     process.env.CHROMIUM_PATH === "playwright"
-      ? undefined
+      ? chromium.executablePath()
       : process.env.CHROMIUM_PATH || "/usr/bin/chromium",
   headless: true,
   args: [
@@ -27,6 +27,17 @@ const nav = await browser.newContext({
 });
 for (const context of [driver, nav])
   await context.addInitScript(() => {
+    const capture = navigator.mediaDevices.getUserMedia.bind(
+      navigator.mediaDevices,
+    );
+    navigator.mediaDevices.getUserMedia = async (constraints) => {
+      try {
+        return await capture(constraints);
+      } catch (error) {
+        window.__mediaFailure = error.name;
+        throw error;
+      }
+    };
     const Original = window.RTCPeerConnection;
     window.__peers = [];
     window.RTCPeerConnection = class extends Original {
@@ -213,6 +224,8 @@ try {
     await b.textContent("#nav-speed"),
     await a.textContent("#voice-status"),
     await b.textContent("#voice-status"),
+    await a.evaluate(() => window.__mediaFailure ?? null),
+    await b.evaluate(() => window.__mediaFailure ?? null),
   );
   await a.screenshot({ path: "work/screenshots/failure.png" });
   throw e;
