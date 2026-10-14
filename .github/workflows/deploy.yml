@@ -32,6 +32,14 @@ jobs:
         run: node scripts/ci-server.mjs --node
         env:
           CHROMIUM_PATH: playwright
+      - name: GitHub Pages — WebRTC, голос и полный маршрут
+        run: npm run test:peer -- --public-broker
+        env:
+          CHROMIUM_PATH: playwright
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        with:
+          path: dist-pages
       - name: Проверка пакета Worker
         run: npx wrangler deploy --dry-run
       - uses: actions/upload-artifact@v4
@@ -68,3 +76,33 @@ jobs:
           npm run test:integration
           echo "### Адрес игры" >> "$GITHUB_STEP_SUMMARY"
           cat work/deploy-url.txt >> "$GITHUB_STEP_SUMMARY"
+
+  pages:
+    needs: check
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - uses: actions/deploy-pages@v4
+        id: deployment
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Проверить опубликованную игру
+        run: npm run test:browser
+        env:
+          CHROMIUM_PATH: playwright
+          TEST_P2P: "1"
+          TEST_ORIGIN: ${{ steps.deployment.outputs.page_url }}

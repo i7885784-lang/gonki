@@ -17,10 +17,13 @@
     "dev:node": "npm run build && npm start",
     "dev:cloudflare": "npm run build && wrangler dev --ip 0.0.0.0",
     "preview:cloudflare": "wrangler dev --ip 0.0.0.0",
-    "test:server": "node tests/node-server.mjs"
+    "test:server": "node tests/node-server.mjs",
+    "build:pages": "node scripts/build-pages.mjs",
+    "test:peer": "node scripts/ci-peer.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.19.0",
+    "peerjs": "^1.5.5",
     "qrcode": "^1.5.4",
     "three": "^0.180.0",
     "ws": "^8.22.0",
@@ -33,6 +36,7 @@
     "@types/three": "^0.180.0",
     "@types/ws": "^8.18.2",
     "esbuild": "^0.28.2",
+    "peer": "^1.0.2",
     "playwright": "^1.56.0",
     "prettier": "^3.9.10",
     "tsx": "^4.20.0",

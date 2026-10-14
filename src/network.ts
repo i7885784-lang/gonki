@@ -4,8 +4,19 @@ import type {
   ServerMessage,
   Snapshot,
 } from "../shared/protocol";
+import type { PeerTransport } from "./peer-transport";
+export interface TransportSocket {
+  readyState: number;
+  onopen: (() => void) | null;
+  onmessage: ((event: { data: string }) => void) | null;
+  onclose: ((event: { code: number; reason: string }) => void) | null;
+  send(data: string): void;
+  close(): void;
+}
+export const peerMode = import.meta.env.VITE_P2P === "true";
 export class Network {
-  ws?: WebSocket;
+  ws?: TransportSocket;
+  private peer?: PeerTransport;
   token = "";
   code = "";
   you = "";
@@ -24,6 +35,23 @@ export class Network {
   onError = (_text: string) => {};
   async enter(role?: string, code?: string) {
     const saved = code ? sessionStorage.getItem("rally:" + code) : null;
+    if (peerMode) {
+      const { PeerTransport } = await import("./peer-transport");
+      this.peer = new PeerTransport((text) => this.onError(text));
+      try {
+        const data = await this.peer.enter(role, code, saved ?? undefined);
+        this.code = data.code;
+        this.token = data.token;
+        this.you = data.id;
+        sessionStorage.setItem("rally:" + this.code, this.token);
+        history.replaceState({}, "", `?room=${this.code}`);
+        this.connect();
+        return;
+      } catch (error) {
+        this.peer.stop();
+        throw error;
+      }
+    }
     const r = await fetch(role ? "/api/rooms" : `/api/rooms/${code}/join`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -51,9 +79,45 @@ export class Network {
   }
   connect() {
     this.stopped = false;
-    this.ws = new WebSocket(
+    if (this.peer) {
+      void this.peer
+        .connect()
+        .then((socket) => {
+          if (this.stopped) {
+            socket.close();
+            return;
+          }
+          this.bind(socket);
+        })
+        .catch((error) => {
+          this.onError((error as Error).message);
+          if (!this.stopped)
+            this.retryTimer = window.setTimeout(() => this.connect(), 4000);
+        });
+      return;
+    }
+    const native = new WebSocket(
       `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/api/rooms/${this.code}/ws`,
     );
+    const socket: TransportSocket = {
+      get readyState() {
+        return native.readyState;
+      },
+      onopen: null,
+      onmessage: null,
+      onclose: null,
+      send: (data) => native.send(data),
+      close: () => native.close(),
+    };
+    native.onopen = () => socket.onopen?.();
+    native.onmessage = (event) =>
+      socket.onmessage?.({ data: String(event.data) });
+    native.onclose = (event) =>
+      socket.onclose?.({ code: event.code, reason: event.reason });
+    this.bind(socket);
+  }
+  private bind(socket: TransportSocket) {
+    this.ws = socket;
     this.lastHeard = Date.now();
     this.ws.onopen = () => {
       this.send({ type: "auth", token: this.token });
@@ -93,6 +157,19 @@ export class Network {
           Math.min(8000, 700 * 2 ** this.retry++),
         );
     };
+    if (socket.readyState === 1) queueMicrotask(() => socket.onopen?.());
+  }
+  async ice() {
+    if (this.peer) return this.peer.ice();
+    const response = await fetch(`/api/rooms/${this.code}/ice`, {
+      headers: { Authorization: `Bearer ${this.token}` },
+    });
+    if (!response.ok) throw Error("Не удалось получить настройки голоса");
+    return response.json() as Promise<{
+      hasTurn: boolean;
+      iceServers: RTCIceServer[];
+      iceTransportPolicy: RTCIceTransportPolicy;
+    }>;
   }
   send(m: ClientMessage) {
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(m));
@@ -103,7 +180,8 @@ export class Network {
     clearInterval(this.timer);
     clearTimeout(this.retryTimer);
     sessionStorage.removeItem("rally:" + this.code);
-    this.ws?.close();
+    if (this.peer) this.peer.stop();
+    else this.ws?.close();
   }
   now() {
     return Date.now() + this.offset;

@@ -50,16 +50,8 @@ export class Voice {
       this.stream = stream;
       this.enabled = true;
       this.muted = false;
-      const r = await fetch(`/api/rooms/${this.net.code}/ice`, {
-        headers: { Authorization: `Bearer ${this.net.token}` },
-      });
-      if (!r.ok) throw Error("Не удалось получить настройки голоса");
+      const conf = await this.net.ice();
       if (generation !== this.generation) return;
-      const conf = (await r.json()) as {
-        hasTurn: boolean;
-        iceServers: RTCIceServer[];
-        iceTransportPolicy: RTCIceTransportPolicy;
-      };
       this.hasTurn = conf.hasTurn;
       this.config = {
         iceServers: conf.iceServers,

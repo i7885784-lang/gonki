@@ -1,6 +1,6 @@
 import "./style.css";
 import QRCode from "qrcode";
-import { Network } from "./network";
+import { Network, peerMode } from "./network";
 import { Voice } from "./voice";
 import type { Game } from "./game";
 import { GameAudio } from "./audio";
@@ -44,7 +44,7 @@ const phaseNames = {
   finished: "Финиш",
 };
 document.querySelector("#app")!.innerHTML = `
-<header class="topbar"><a class="brand" href="/" aria-label="Ралли вместе — главная"><span class="brand-mark">→</span><span>РАЛЛИ <b>ВМЕСТЕ</b></span></a><div class="top-meta"><span class="live-dot"></span><span id="connection">Кооперативное ралли для двоих</span></div><button id="settings-button" class="icon-button" aria-label="Настройки и управление">⚙</button></header>
+<header class="topbar"><a class="brand" href="./" aria-label="Ралли вместе — главная"><span class="brand-mark">→</span><span>РАЛЛИ <b>ВМЕСТЕ</b></span></a><div class="top-meta"><span class="live-dot"></span><span id="connection">Кооперативное ралли для двоих</span></div><button id="settings-button" class="icon-button" aria-label="Настройки и управление">⚙</button></header>
 <main id="home" class="home"><section class="intro"><div class="eyebrow">ОДНА МАШИНА · ДВА ЧЕЛОВЕКА</div><h1>Дорогу видишь ты.<br>Поворот знает<br><em>напарник.</em></h1><p class="lead">Лес, гравий и незнакомый перевал.<br>Доверьтесь друг другу — и доберитесь до финиша.</p><div class="create-box"><div class="small-label">ВЫБЕРИТЕ СВОЮ РОЛЬ</div><div class="role-select"><button class="role-choice selected" data-role="driver"><span>◉</span><strong>Водитель</strong><small>Руль, педали, дорога</small></button><button class="role-choice" data-role="codriver"><span>⌘</span><strong>Штурман</strong><small>Карта, повороты, голос</small></button></div><button id="create" class="primary wide">Создать экипаж <span>→</span></button></div><form id="join-form" class="join-form"><label for="code">Уже есть приглашение?</label><div><input id="code" maxlength="8" placeholder="Код комнаты" autocomplete="off" autocapitalize="characters" aria-label="Код комнаты"><button class="secondary" type="submit">Присоединиться →</button></div></form><p id="home-error" class="error" role="alert"></p></section>
 <section class="stage-card"><div class="stage-art"><svg viewBox="0 0 600 530" aria-hidden="true"><defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#a7beb3"/><stop offset="1" stop-color="#d8ddc3"/></linearGradient></defs><path fill="url(#sky)" d="M0 0H600V530H0z"/><circle cx="457" cy="93" r="39" fill="#f1e5bf"/><path d="M-60 327 103 112 194 225 329 65 493 285 575 164 665 320V530H0" fill="#779689"/><path d="m210 214 119-149 78 106-64-23-24-29-29 54-37-2Z" fill="#c7d0ba"/><path d="m-50 424 230-225 193 134 143-105 137 211V530H0" fill="#456c5a"/><path d="M-20 530C-60 380 421 445 399 345S243 336 290 273" fill="none" stroke="#d8c6a2" stroke-width="33"/><path d="M-20 530C-60 380 421 445 399 345S243 336 290 273" fill="none" stroke="#b7a27d" stroke-width="2" stroke-dasharray="6 9"/><g fill="#234b3d"><path d="m74 246-48 117h32l-39 66h99l-39-66h29Z"/><path d="m484 269-51 123h33l-42 72h114l-42-72h33Z"/><path d="m173 310-30 76h20l-26 44h72l-26-44h20Z"/><path d="m556 361-40 98h27l-34 59h92l-34-59h27Z"/></g><g transform="translate(258 422) rotate(-10)"><rect x="-21" y="-7" width="48" height="22" rx="5" fill="#283c32"/><rect x="-16" y="-17" width="39" height="32" rx="6" fill="#ef7447"/><rect x="-9" y="-8" width="25" height="12" rx="2" fill="#d6dccb"/><rect x="-2" y="-17" width="5" height="33" fill="#f6e8c8"/></g></svg><div class="stage-tag">СУ 01 / ЛЕС → ГОРЫ</div><div class="art-caption">Сосновый<br>перевал</div></div><div class="stage-specs"><div><strong>${distance(LENGTH)}</strong><span>Дистанция</span></div><div><strong>93 м</strong><span>Набор высоты</span></div><div><strong>Гравий</strong><span>Покрытие</span></div></div><div class="stage-footer"><span>→ 3–5 минут заезда</span><span>Общий финиш. Общая победа.</span></div></section></main>
 <section id="session" hidden><div class="session-heading"><div><span class="eyebrow" id="session-code"></span><h2 id="phase-label">Сбор экипажа</h2></div><div class="session-actions"><span id="my-role" class="badge"></span><button id="leave" class="text-button">Выйти</button></div></div>
@@ -77,18 +77,19 @@ async function enter(role?: string, code?: string) {
     $("session").hidden = false;
     $("session-code").textContent = `ЭКИПАЖ ${net.code} / СУ 01`;
     $("room-code").textContent = net.code;
-    const url = `${location.origin}/?room=${net.code}`;
-    $<HTMLInputElement>("invite-link").value = url;
-    await QRCode.toCanvas($<HTMLCanvasElement>("qr"), url, {
+    const url = new URL(location.pathname, location.origin);
+    url.searchParams.set("room", net.code);
+    $<HTMLInputElement>("invite-link").value = url.href;
+    await QRCode.toCanvas($<HTMLCanvasElement>("qr"), url.href, {
       width: 140,
       margin: 1,
       color: { dark: "#243e32", light: "#f8f6ed" },
     });
-    $("invite-hint").textContent = ["localhost", "127.0.0.1"].includes(
-      location.hostname,
-    )
-      ? "Адрес localhost работает только на этом компьютере. Для планшета откройте игру по сетевому адресу компьютера."
-      : "Приглашение действует до закрытия комнаты, не более 4 часов.";
+    $("invite-hint").textContent = peerMode
+      ? "Оставьте вкладку организатора открытой. В сложных сетях попробуйте общий Wi-Fi: без TURN прямое соединение доступно не всегда."
+      : ["localhost", "127.0.0.1"].includes(location.hostname)
+        ? "Адрес localhost работает только на этом компьютере. Для планшета откройте игру по сетевому адресу компьютера."
+        : "Приглашение действует до закрытия комнаты, не более 4 часов.";
   } catch (e) {
     $("home-error").textContent = (e as Error).message;
   } finally {
@@ -497,6 +498,13 @@ function loop(now: number) {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
+if (peerMode) {
+  const hint = document.createElement("p");
+  hint.className = "muted";
+  hint.textContent =
+    "Связь напрямую между браузерами. Организатор оставляет свою вкладку открытой. Голос включается отдельно.";
+  document.querySelector<HTMLElement>(".create-box")!.appendChild(hint);
+}
 const invited = new URLSearchParams(location.search).get("room")?.toUpperCase();
 if (invited) {
   $<HTMLInputElement>("code").value = invited;

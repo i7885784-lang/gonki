@@ -1,7 +1,11 @@
 import { chromium } from "playwright";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
-const origin = process.env.TEST_ORIGIN || "http://localhost:8787";
+const origin = (process.env.TEST_ORIGIN || "http://localhost:8787").replace(
+  /\/$/,
+  "",
+);
+const apiRequests = [];
 await fs.mkdir("work/screenshots", { recursive: true });
 const browser = await chromium.launch({
   executablePath:
@@ -51,6 +55,10 @@ const a = await driver.newPage(),
   b = await nav.newPage();
 const errors = [];
 for (const p of [a, b]) {
+  p.on("request", (request) => {
+    if (new URL(request.url()).pathname.startsWith("/api/"))
+      apiRequests.push(request.url());
+  });
   p.on("console", (m) => {
     if (m.type() === "error") console.log("console", m.text());
   });
@@ -198,7 +206,7 @@ try {
   await permissions.send("Browser.setPermission", {
     permission: { name: "microphone" },
     setting: "denied",
-    origin,
+    origin: new URL(origin).origin,
   });
   await c.goto(link);
   await c.click("#voice-enable");
@@ -212,6 +220,12 @@ try {
   await a.click("#leave");
   await denied.close();
   assert.deepEqual(errors, []);
+  if (process.env.TEST_P2P === "1")
+    assert.deepEqual(
+      apiRequests,
+      [],
+      "Статическая версия должна работать без API-сервера",
+    );
   console.log(
     "PASS: два независимых браузера, приглашение, реальные физика и карта, SDP и управление микрофоном, команды, восстановление вкладки, отказ микрофона не мешает готовности; без критических ошибок.",
   );
