@@ -85,11 +85,29 @@ try {
   await a.waitForFunction(() =>
     document.querySelector("#loading").textContent.includes("Машина готова"),
   );
+  await a.fill("#player-name", "Руслан");
+  await a.click("#name-form button");
   const link = await a.inputValue("#invite-link");
   assert.ok(link.startsWith(origin));
   await b.goto(link);
-  await b.waitForFunction(
-    () => document.querySelector("#my-role").textContent === "Штурман",
+  await b.waitForSelector("#session:visible");
+  await b.fill("#player-name", "Саша <друг>");
+  await b.click("#name-form button");
+  await a.waitForFunction(() =>
+    document.querySelector("#players").textContent.includes("Саша <друг>"),
+  );
+  await b.click('[data-lobby-role="driver"]');
+  await a.waitForFunction(
+    () =>
+      document
+        .querySelector('[data-lobby-role="codriver"]')
+        .getAttribute("aria-pressed") === "true",
+  );
+  await a.click("#random-roles");
+  await a.click('[data-lobby-role="driver"]');
+
+  await b.waitForFunction(() =>
+    document.querySelector("#my-role").textContent.includes("Штурман"),
   );
   await a.screenshot({ path: "work/screenshots/lobby.png" });
   await a.click("#voice-enable");

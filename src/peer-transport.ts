@@ -383,8 +383,9 @@ export class PeerTransport {
       await host.run(() => host.engine.acceptSocket(link));
       return client;
     }
-    if (!this.remote?.open)
-      await this.join(this.entry!.code, this.entry!.token);
+    if (!this.entry)
+      throw Error("Сначала создайте комнату или откройте приглашение.");
+    if (!this.remote?.open) await this.join(this.entry.code, this.entry.token);
     const connection = this.remote!;
     const client = new ClientSocket(
       (data) => connection.send({ kind: "message", data } satisfies Packet),

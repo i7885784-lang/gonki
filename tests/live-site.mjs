@@ -12,7 +12,7 @@ page.on('pageerror', e=>console.log('PAGEERROR',e.stack));
 await page.goto('https://rally-together-rusli.wavy-seesaws9e.chatgpt.site');
 await page.click('#create');
 try {
- await page.waitForFunction(()=>document.querySelector('#invite-link')?.value, {timeout:30000});
+ await page.waitForFunction(()=>document.querySelector('#invite-link')?.value, undefined, {timeout:30000});
  console.log('ROOM_CREATED');
 } finally {
  console.log('HOME_ERROR',await page.locator('#home-error').textContent());

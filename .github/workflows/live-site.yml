@@ -6,7 +6,7 @@ on:
 jobs:
   live:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,6 +16,11 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: node tests/live-site.mjs
+      - run: npm run test:browser
+        env:
+          CHROMIUM_PATH: playwright
+          TEST_P2P: '1'
+          TEST_ORIGIN: https://rally-together-rusli.wavy-seesaws9e.chatgpt.site
       - uses: actions/upload-artifact@v4
         if: always()
         with:

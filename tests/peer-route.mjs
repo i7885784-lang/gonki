@@ -80,9 +80,15 @@ const state = () =>
 let seq = 1000;
 try {
   await h.goto(origin);
-  await h.click('[data-role="codriver"]');
   await h.click("#create");
   await h.waitForSelector("#session:visible");
+  await h.click('[data-lobby-role="codriver"]');
+  await h.waitForFunction(
+    () =>
+      document
+        .querySelector('[data-lobby-role="codriver"]')
+        .getAttribute("aria-pressed") === "true",
+  );
   const link = await h.inputValue("#invite-link");
   assert.ok(link.includes("/gonki/?room="));
   await d.goto(link);

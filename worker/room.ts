@@ -168,6 +168,7 @@ export class RoomEngine {
       this.s.players.push({
         id,
         role: data.role,
+        name: "Игрок 1",
         ready: false,
         connected: false,
         resume: false,
@@ -201,6 +202,7 @@ export class RoomEngine {
       this.s.players.push({
         id,
         role: this.s.players[0]?.role === "driver" ? "codriver" : "driver",
+        name: "Игрок 2",
         ready: false,
         connected: false,
         resume: false,
@@ -399,7 +401,27 @@ export class RoomEngine {
       }
       return;
     }
-    if (m.type === "ready" && ["lobby", "ready"].includes(s.phase)) {
+    if (m.type === "name" && ["lobby", "ready"].includes(s.phase)) {
+      p.name = m.name;
+    } else if (
+      (m.type === "role" || (m.type === "random-roles" && p.id === s.host)) &&
+      ["lobby", "ready"].includes(s.phase)
+    ) {
+      const role =
+        m.type === "role"
+          ? m.role
+          : crypto.getRandomValues(new Uint8Array(1))[0] % 2
+            ? "driver"
+            : "codriver";
+      p.role = role;
+      for (const other of s.players) {
+        if (other.id !== p.id)
+          other.role = role === "driver" ? "codriver" : "driver";
+        other.ready = false;
+      }
+      s.swap = null;
+      s.phase = "lobby";
+    } else if (m.type === "ready" && ["lobby", "ready"].includes(s.phase)) {
       p.ready = m.value;
       s.phase =
         s.players.length === 2 && s.players.every((p) => p.ready && p.connected)

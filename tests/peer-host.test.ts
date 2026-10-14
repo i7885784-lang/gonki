@@ -71,3 +71,65 @@ it("перезагрузка организатора восстанавлива
   }
   expect(store.getItem("rally-host:ABCDEFGH")).toBeNull();
 });
+
+it("имена и роли меняются в лобби, сохраняют уникальные места и сбрасывают готовность", async () => {
+  const room = new BrowserHost("ABCDEFGH", memory());
+  const socket = () => {
+    let attachment: unknown;
+    return {
+      send: (_: string) => {},
+      close: () => {},
+      serializeAttachment: (value: unknown) => {
+        attachment = value;
+      },
+      deserializeAttachment: () => attachment,
+    };
+  };
+  try {
+    const init = await room.run(() =>
+      room.engine.fetch(
+        new Request("https://room/init", {
+          method: "POST",
+          body: JSON.stringify({ code: room.code, role: "driver" }),
+        }),
+      ),
+    );
+    const first = (await init.json()) as { token: string };
+    const join = await room.run(() =>
+      room.engine.fetch(
+        new Request("https://room/join", { method: "POST", body: "{}" }),
+      ),
+    );
+    const second = (await join.json()) as { token: string };
+    const a = socket(),
+      b = socket();
+    const send = (link: ReturnType<typeof socket>, message: unknown) =>
+      room.run(() =>
+        room.engine.webSocketMessage(link, JSON.stringify(message)),
+      );
+    await room.run(() => room.engine.acceptSocket(a));
+    await room.run(() => room.engine.acceptSocket(b));
+    await send(a, { type: "auth", token: first.token });
+    await send(b, { type: "auth", token: second.token });
+    await send(b, { type: "name", name: "  Саша  " });
+    expect(room.engine.s!.players[1].name).toBe("Саша");
+    await send(a, { type: "ready", value: true });
+    await send(b, { type: "ready", value: true });
+    expect(room.engine.s!.phase).toBe("ready");
+    await send(b, { type: "role", role: "driver" });
+    expect(room.engine.s!.players.map((p) => p.role)).toEqual([
+      "codriver",
+      "driver",
+    ]);
+    expect(room.engine.s!.players.every((p) => !p.ready)).toBe(true);
+    expect(room.engine.s!.phase).toBe("lobby");
+    await send(a, { type: "random-roles" });
+    expect(new Set(room.engine.s!.players.map((p) => p.role)).size).toBe(2);
+    room.engine.s!.phase = "racing";
+    const roles = room.engine.s!.players.map((p) => p.role);
+    await send(b, { type: "role", role: "codriver" });
+    expect(room.engine.s!.players.map((p) => p.role)).toEqual(roles);
+  } finally {
+    room.stop();
+  }
+});

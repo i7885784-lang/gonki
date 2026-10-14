@@ -5,6 +5,7 @@ export type Phase =
 export type Player = {
   id: string;
   role: Role;
+  name?: string;
   ready: boolean;
   connected: boolean;
   resume: boolean;
@@ -49,6 +50,13 @@ const vec = z
   })
   .strict();
 export const messageSchema = z.discriminatedUnion("type", [
+  z
+    .object({ type: z.literal("name"), name: z.string().trim().min(1).max(24) })
+    .strict(),
+  z
+    .object({ type: z.literal("role"), role: z.enum(["driver", "codriver"]) })
+    .strict(),
+  z.object({ type: z.literal("random-roles") }).strict(),
   z.object({ type: z.literal("auth"), token: z.string().uuid() }).strict(),
   z.object({ type: z.literal("ready"), value: z.boolean() }).strict(),
   ...(

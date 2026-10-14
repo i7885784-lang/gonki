@@ -34,12 +34,26 @@ export class Network {
   onConnection = (_connected: boolean) => {};
   onError = (_text: string) => {};
   async enter(role?: string, code?: string) {
+    this.stopped = true;
+    clearInterval(this.timer);
+    clearTimeout(this.retryTimer);
+    if (this.ws) {
+      this.ws.onclose = null;
+      this.ws.close();
+      this.ws = undefined;
+    }
+    this.peer?.stop();
+    this.peer = undefined;
     const saved = code ? sessionStorage.getItem("rally:" + code) : null;
     if (peerMode) {
       const { PeerTransport } = await import("./peer-transport");
       this.peer = new PeerTransport((text) => this.onError(text));
       try {
         const data = await this.peer.enter(role, code, saved ?? undefined);
+        if (!data?.code || !data.token || !data.id)
+          throw Error(
+            "Комната не вернула приглашение. Обновите страницу и создайте новый экипаж.",
+          );
         this.code = data.code;
         this.token = data.token;
         this.you = data.id;
@@ -147,7 +161,7 @@ export class Network {
       clearInterval(this.timer);
       this.connected = false;
       this.onConnection(false);
-      if (e.code === 4001 || e.code === 1008 || e.code === 1000) {
+      if (e?.code === 4001 || e?.code === 1008 || e?.code === 1000) {
         this.stopped = true;
         this.onError(e.reason || "Комната закрыта");
       }
