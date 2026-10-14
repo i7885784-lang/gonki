@@ -14,9 +14,10 @@ const host = await browser.newContext(),
   driver = await browser.newContext();
 const h = await host.newPage(),
   d = await driver.newPage();
+for (const page of [h, d])
+  page.on("pageerror", (error) => console.log("P2P PAGE ERROR", error.message));
 await driver.addInitScript(() => {
-  // Protocol route test: suppress the physical driver's normal frame snapshots.
-  window.requestAnimationFrame = () => 0;
+  // Keep browser animation running; only the protocol fixture sends snapshots.
   window.__channels = [];
   window.__messages = [];
   window.__acks = [];
@@ -25,6 +26,21 @@ await driver.addInitScript(() => {
     createDataChannel(...args) {
       const channel = super.createDataChannel(...args);
       window.__channels.push(channel);
+      const transmit = channel.send.bind(channel);
+      channel.send = (data) => {
+        try {
+          const packet = JSON.parse(
+            typeof data === "string" ? data : new TextDecoder().decode(data),
+          );
+          if (
+            packet.kind === "message" &&
+            JSON.parse(packet.data).type === "snapshot" &&
+            !window.__routeSending
+          )
+            return;
+        } catch {}
+        transmit(data);
+      };
       channel.addEventListener("message", (event) => {
         try {
           const packet = JSON.parse(
@@ -42,17 +58,20 @@ await driver.addInitScript(() => {
   };
 });
 const send = (message) =>
-  d.evaluate(
-    (message) =>
+  d.evaluate((message) => {
+    window.__routeSending = true;
+    try {
       window.__channels
         .find((channel) => channel.readyState === "open")
         .send(
           new TextEncoder().encode(
             JSON.stringify({ kind: "message", data: JSON.stringify(message) }),
           ),
-        ),
-    message,
-  );
+        );
+    } finally {
+      window.__routeSending = false;
+    }
+  }, message);
 const state = () =>
   d.evaluate(
     () =>
@@ -164,6 +183,26 @@ try {
   console.log(
     "PASS: настоящий WebRTC DataChannel, два места, роль организатора-штурмана, запрет телепорта, штраф без дублей, перезагрузка организатора, все 27 КТ, общий финиш, повтор и закрытие.",
   );
+} catch (error) {
+  console.log(
+    "P2P route failure",
+    await h.textContent("#home-error"),
+    await d.textContent("#home-error"),
+    await d.textContent("#loading"),
+    await d.textContent("#my-role"),
+    await d.evaluate(() => ({
+      channels: window.__channels.map((channel) => ({
+        label: channel.label,
+        state: channel.readyState,
+      })),
+      messages: window.__messages.length,
+    })),
+  );
+  await h.screenshot({ path: "work/screenshots/peer-route-host-failure.png" });
+  await d.screenshot({
+    path: "work/screenshots/peer-route-driver-failure.png",
+  });
+  throw error;
 } finally {
   await browser.close();
 }
